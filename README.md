@@ -1,23 +1,18 @@
-# 后端服务开源介绍
+#### 安装依赖
 
-后端服务提供两个版本，一个是 JAVA 版本，一个是 Koa 版本。JAVA 版本为社群开发者贡献，Koa 版本由我自己开发。
+`yarn`
 
-## JAVA 版本
+#### 运行
 
-该版本为社群开发者贡献，代码在 java 文件夹下，JDK 推荐 17 及以上版本。
+`yarn serve`
 
-## Koa 版本
+#### 目录结构
 
-Koa 版本是我自己开发，使用 Node 实现，config.js 为配置文件，node 版本推荐 18 及以上版本。
-
-未来计划基于 nest 重构，欢迎对低代码有浓厚兴趣的开发者加入，一起重构，焕发生机。
-
-## 数据库
-
-数据库脚本在 sql 文件夹下
-
-## 部署文档
-
-[部署文档](http://docs.marsview.cc/deploy.html)
-
-
+- main.js - 项目入口文件
+- app.js - 创建 app 实例
+- config.js - 项目配置
+- sql.js - mysql 连接池
+- router - 业务路由处理
+- controller - 响应请求
+- service - sql 服务
+- error - 错误处理
