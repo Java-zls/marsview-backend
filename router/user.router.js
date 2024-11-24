@@ -20,8 +20,8 @@ router.post('/login', async (ctx) => {
     util.fail(ctx, '用户名或密码错误');
     return;
   }
-  const token = util.createToken({ userName, userId: res.id });
-  userService.updateLoginTime(res.id);
+  const token = util.createToken({ userName, userId: res.id, nickName: res.nickName });
+  userService.updateUserInfo(res.id);
   util.success(ctx, {
     userId: res.id,
     userName,
@@ -33,13 +33,19 @@ router.post('/login', async (ctx) => {
  * 获取用户信息
  */
 router.get('/info', async (ctx) => {
-  const { userId, userName } = util.decodeToken(ctx);
-  util.success(ctx, {
-    userId,
-    userName,
-  });
+  const { userId } = util.decodeToken(ctx);
+  const res = await userService.profile(userId);
+  util.success(ctx, res);
 });
 
+/**
+ * 获取个人信息
+ */
+router.get('/profile', async (ctx) => {
+  const { userId } = util.decodeToken(ctx);
+  const res = await userService.profile(userId);
+  util.success(ctx, res);
+});
 /**
  * 用户搜索
  */
@@ -58,7 +64,21 @@ router.post('/search', async (ctx) => {
 });
 
 /**
- * 用户注册
+ * 用户信息更新
+ */
+router.post('/update/profile', async (ctx) => {
+  const { nickName, avatar } = ctx.request.body;
+  if (!nickName && !avatar) {
+    util.fail(ctx, '参数异常，请重新提交');
+    return;
+  }
+  const { userId } = util.decodeToken(ctx);
+  await userService.updateUserInfo(userId, nickName, avatar);
+  util.success(ctx, '更新成功');
+});
+
+/**
+ * 用户注册 - 发送验证码
  */
 router.post('/sendEmail', async (ctx) => {
   try {
@@ -81,7 +101,7 @@ router.post('/sendEmail', async (ctx) => {
       },
     });
 
-    const random = Math.random().toString().slice(2, 7);
+    const random = Math.random().toString().slice(2, 7).replace(/^(0)+/, '1');
 
     let mailOptions = {
       from: `"Marsview" <${config.EMAIL_USER}>`, // 发送者地址
@@ -139,6 +159,118 @@ router.post('/regist', async (ctx) => {
     });
   } else {
     util.fail(ctx, '注册失败,请重试');
+  }
+});
+
+/**
+ * 忘记密码 - 生成链接
+ */
+router.post('/password/forget', async (ctx) => {
+  const { userEmail } = ctx.request.body;
+  if (!userEmail) {
+    util.fail(ctx, '邮箱不能为空');
+    return;
+  }
+  const user = await userService.search(userEmail);
+  if (!user) {
+    util.fail(ctx, '当前用户不存在');
+    return;
+  }
+  // 生成验证码，保存在redis中，用来验证链接有效期
+  const random = Math.random().toString().slice(2, 7);
+  await keyv.set(userEmail, random, 5 * 60 * 1000);
+  // 生成加密后token
+  const token = util.createToken({ userEmail });
+
+  // 发送邮件
+  let transporter = nodemailer.createTransport({
+    host: config.EMAIL_HOST,
+    port: config.EMAIL_PORT,
+    auth: {
+      user: config.EMAIL_USER, // 你的Gmail地址
+      pass: config.EMAIL_PASSWORD, // 你的Gmail密码或应用专用密码
+    },
+  });
+  let mailOptions = {
+    from: `"Marsview" <${config.EMAIL_USER}>`, // 发送者地址
+    to: userEmail, // 接收者列表
+    subject: 'Marsview密码找回', // 主题行
+    text: '验证码发送', // 纯文字正文
+    html: `Hello，${userEmail}! <br/> 我们收到了你重置密码的申请，请点击下方按链接行重置，<a href="https://www.marsview.com.cn/password-reset?resetToken=${token}">重置密码</a> <br/> 链接 3分钟内有效，请尽快操作，如不是你发起的请求，请忽略。`, // HTML正文
+  };
+
+  await transporter.sendMail(mailOptions);
+  util.success(ctx, '发送成功');
+});
+
+/**
+ * 忘记密码 - 获取账号
+ */
+router.post('/password/getUserByToken', async (ctx) => {
+  const { resetToken } = ctx.request.query;
+  const { userEmail } = util.decodeResetToken(resetToken);
+  const val = await keyv.get(userEmail);
+  if (!val) {
+    util.fail(ctx, '链接已失效，请重新操作');
+    return;
+  }
+  util.success(ctx, userEmail);
+});
+
+/**
+ * 忘记密码 - 重置密码
+ */
+router.post('/password/reset', async (ctx) => {
+  const { resetToken, userPwd } = ctx.request.body;
+  if (!resetToken) {
+    util.fail(ctx, '重置Token不能为空');
+    return;
+  }
+  if (!userPwd) {
+    util.fail(ctx, '重置密码不能为空');
+    return;
+  }
+  const { userEmail } = util.decodeResetToken(resetToken);
+  if (!userEmail) {
+    util.fail(ctx, 'Token 识别错误，请重新操作');
+    return;
+  }
+  const val = await keyv.get(userEmail);
+  if (!val) {
+    util.fail(ctx, '链接已失效，请重新操作');
+    return;
+  }
+  await userService.resetPwd(userEmail, userPwd);
+  await keyv.delete(userEmail);
+  util.success(ctx, '更新成功');
+});
+
+/**
+ * 密码修改
+ */
+
+router.post('/password/update', async (ctx) => {
+  const { oldPwd, userPwd, confirmPwd } = ctx.request.body;
+  if (!oldPwd || !userPwd || !confirmPwd) {
+    util.fail(ctx, '密码不能为空');
+    return;
+  }
+  if (userPwd !== confirmPwd) {
+    util.fail(ctx, '两次密码不一致');
+    return;
+  }
+  const { userName } = util.decodeToken(ctx);
+
+  try {
+    const res = await userService.verifyOldPwd(userName, oldPwd);
+    if (res) {
+      await userService.resetPwd(userName, userPwd);
+      util.success(ctx, '密码更改成功');
+    } else {
+      util.fail(ctx, '原密码输入错误');
+    }
+  } catch (error) {
+    util.fail(ctx, error.message);
   }
 });
 

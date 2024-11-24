@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const sdk = require('@baiducloud/sdk');
 const config = require('../config');
+const { Keyv } = require('keyv');
+const keyv = new Keyv();
+const request = require('./request');
+
 /**
  * 工具函数
  */
@@ -104,6 +108,10 @@ module.exports = {
       return ctx.throw(401, '账号信息异常，请重新登录');
     }
   },
+  // 解密重置密码对应的token
+  decodeResetToken(token) {
+    return jwt.verify(token, config.JWT_SECRET);
+  },
   /**
    * 上传文件，用于自定义组件内容上传到bos
    * @param {*} fileName 文件名称
@@ -139,5 +147,70 @@ module.exports = {
       'Cache-Control': 'public, max-age=31536000', // 指定缓存指令
       'x-bce-acl': 'public-read',
     });
+  },
+
+  /**
+   * 传入文本，通过百度内容审核接口校验文本的合法性，返回校验结果
+   * @param {*} content 文本内容
+   * @returns
+   */
+  async checkContent(content) {
+    let baidu_access_token = await keyv.get('baidu_access_token');
+    if (!baidu_access_token) {
+      const new_access_token = await this.getAccessToken();
+      baidu_access_token = new_access_token;
+      await keyv.set('baidu_access_token', new_access_token, 29 * 24 * 60 * 60 * 1000); // 29天的过期时间
+    }
+
+    const content_url = 'https://aip.baidubce.com/rest/2.0/solution/v1/text_censor/v2/user_defined?access_token=' + baidu_access_token;
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    };
+
+    const params = new URLSearchParams();
+    params.append('text', content);
+
+    const content_res = await request.post(content_url, params.toString(), { headers });
+    return JSON.parse(content_res.data);
+  },
+
+  /**
+   * 检验图片是否合法
+   * @param {*} image 图片地址
+   * @returns
+   */
+  async checkImage(image_base64) {
+    let baidu_access_token = await keyv.get('baidu_access_token');
+    if (!baidu_access_token) {
+      const new_access_token = await this.getAccessToken();
+      baidu_access_token = new_access_token;
+      await keyv.set('baidu_access_token', new_access_token, 29 * 24 * 60 * 60 * 1000); // 29天的过期时间
+    }
+
+    const image_url = 'https://aip.baidubce.com/rest/2.0/solution/v1/img_censor/v2/user_defined?access_token=' + baidu_access_token;
+
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    };
+
+    const params = new URLSearchParams();
+    params.append('image', image_base64);
+
+    const image_res = await request.post(image_url, params.toString(), { headers });
+    return JSON.parse(image_res.data);
+  },
+
+  async getAccessToken() {
+    const url =
+      'https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=' + config.API_KEY + '&client_secret=' + config.Secret_Key;
+    const res = await request.post(url);
+    const data = JSON.parse(res.data);
+    if (!data.access_token) {
+      throw new Error('获取百度内容审核access_token失败');
+    }
+    return data.access_token;
   },
 };

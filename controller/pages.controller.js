@@ -7,7 +7,7 @@ module.exports = {
   async list(ctx) {
     const { userId } = util.decodeToken(ctx);
     const { pageNum, pageSize, keyword, projectId } = ctx.request.query;
-    const { total } = await pageService.listCount(keyword, userId, projectId);
+    const { total } = await pageService.listCount(keyword, userId, Number(projectId));
     if (total == 0) {
       return util.success(ctx, {
         list: [],
@@ -16,7 +16,7 @@ module.exports = {
         pageNum: +pageNum || 1,
       });
     }
-    const list = await pageService.list(pageNum || 1, pageSize || 12, keyword, userId, projectId);
+    const list = await pageService.list(pageNum || 1, pageSize || 12, keyword, userId, Number(projectId));
 
     util.success(ctx, {
       list,
@@ -182,7 +182,8 @@ module.exports = {
     if (!res) {
       return ctx.throw(400, '当前用户不存在');
     }
-    await pagesRoleService.create(type, pageId, role, res.id, userName);
+    const { userId: createdUId, userName: createdUName } = util.decodeToken(ctx);
+    await pagesRoleService.create(type, pageId, role, res.id, userName, createdUId, createdUName);
     util.success(ctx);
   },
 

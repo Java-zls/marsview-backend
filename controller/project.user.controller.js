@@ -42,10 +42,15 @@ module.exports = {
       params.roleId = 0;
     }
 
+    const { userId, userName } = util.decodeToken(ctx);
+    // 获取用户角色
     const user = await userService.getUserRole(params.userId, params.projectId);
     if (user) {
       return ctx.throw(400, '该用户已存在');
     }
+
+    params.createUserId = userId;
+    params.createUserName = userName;
     await userService.createUser(params);
     util.success(ctx);
   },

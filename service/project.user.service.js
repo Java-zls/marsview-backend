@@ -35,8 +35,17 @@ class UserService {
   }
 
   async createUser(params) {
-    const statement = 'INSERT INTO project_user (user_id, user_name, project_id, system_role, role_id) VALUES (?, ?, ?, ?, ?);';
-    const [result] = await connection.execute(statement, [params.userId, params.userName, params.projectId, params.systemRole, params.roleId]);
+    const statement =
+      'INSERT INTO project_user (user_id, user_name, project_id, system_role, role_id, created_uid, created_uname) VALUES (?, ?, ?, ?, ?, ?, ?);';
+    const [result] = await connection.execute(statement, [
+      params.userId,
+      params.userName,
+      params.projectId,
+      params.systemRole,
+      params.roleId,
+      params.createUserId,
+      params.createUserName,
+    ]);
     return result;
   }
 

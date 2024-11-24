@@ -7,9 +7,9 @@ class PagesRoleService {
     return result;
   }
 
-  async create(type, pageId, role, userId, userName) {
-    const statement = 'INSERT INTO pages_role (type, page_id, role, user_id, user_name) VALUES (?, ?, ?, ?, ?);';
-    const [result] = await connection.execute(statement, [type, pageId, role, userId, userName]);
+  async create(type, pageId, role, userId, userName, createdUId, createdUName) {
+    const statement = 'INSERT INTO pages_role (type, page_id, role, user_id, user_name, created_uid,created_uname) VALUES (?, ?, ?, ?, ?, ?, ?);';
+    const [result] = await connection.execute(statement, [type, pageId, role, userId, userName, createdUId, createdUName]);
     return result;
   }
 
