@@ -47,6 +47,56 @@ class ProjectsService {
     return result;
   }
 
+  // 查询页面分类总条数
+  async getCategoryCount(keyword, userId) {
+    const statement = `
+      SELECT 
+        count(DISTINCT p.id) total
+      FROM 
+        projects p
+      LEFT JOIN 
+        pages pg ON p.id = pg.project_id
+      WHERE 
+        (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL)
+      AND 
+        p.user_id = ?
+    `;
+    const [result] = await connection.execute(statement, [keyword || null, keyword || null, userId]);
+    return result[0];
+  }
+
+  // 查询页面分类列表
+  async getCategoryList(pageNum, pageSize, keyword, userId) {
+    const offset = (+pageNum - 1) * pageSize + '';
+    const statement = `
+      SELECT 
+        p.id as id,
+        p.name as name,
+        p.remark,
+        p.user_id as userId,
+        p.user_name as userName,
+        p.logo,
+        COUNT(pg.id) as count
+      FROM 
+        projects p
+      LEFT JOIN 
+        pages pg ON p.id = pg.project_id
+      LEFT JOIN 
+        pages_role pr ON p.id = pr.page_id AND pr.user_id = ?
+      WHERE 
+        (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
+      AND 
+        p.user_id = ?
+      OR 
+        pr.user_id = ?
+      GROUP BY 
+        p.id, p.name, p.user_id
+      LIMIT ?, ?
+    `;
+    const [result] = await connection.execute(statement, [userId, keyword || null, keyword || null, userId, userId, offset, pageSize]);
+    return result;
+  }
+
   // 自己拥有的项目列表
   async ownList(pageNum, pageSize, userId) {
     const offset = (+pageNum - 1) * pageSize + '';

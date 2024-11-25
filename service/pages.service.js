@@ -1,103 +1,107 @@
 const connection = require('../sql');
 class PagesService {
   async listCount(keyword, userId, projectId) {
-    const statement = `
-      SELECT 
-          count(p.id) as total
-      FROM 
-        pages p
-      LEFT JOIN   
-        (select * from pages_role WHERE user_id= ?) pr ON p.id = pr.page_id and p.user_id = ${userId}
-      WHERE 
-        (
+    let statement = '';
+    if (projectId) {
+      statement = `
+        SELECT 
+          count(p.id) total
+        FROM 
+          pages p
+        LEFT JOIN   
+          pages_role pr 
+        ON 
+          p.project_id = pr.page_id and pr.user_id = ${userId}
+        WHERE 
           (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
-          AND p.user_id = ?
-          ${projectId ? 'AND p.project_id = ' + projectId : ''}
-        ) OR pr.page_id IS NOT NULL
-    `;
-    const [result] = await connection.execute(statement, [userId, keyword || null, keyword || null, userId]);
+        AND 
+          p.project_id = ${projectId} and pr.user_id IS NOT NULL`;
+    } else {
+      statement = `
+        SELECT 
+            count(p.id) as total
+        FROM 
+          pages p
+        LEFT JOIN   
+          (select * from pages_role WHERE user_id= ${userId}) pr ON p.id = pr.page_id and p.user_id = ${userId}
+        WHERE 
+          (
+            (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
+            AND p.user_id = ${userId}
+          ) OR pr.page_id IS NOT NULL
+      `;
+    }
+
+    const [result] = await connection.execute(statement, [keyword || null, keyword || null]);
     return result[0];
   }
   async list(pageNum, pageSize, keyword, userId, projectId) {
     const offset = (+pageNum - 1) * pageSize + '';
     const limit = pageSize;
-    const statement = `
-      SELECT 
-        p.id,
-        p.name,
-        p.user_id as userId,
-        p.remark,
-        p.is_public as isPublic,
-        p.is_edit as isEdit,
-        p.preview_img as previewImg,
-        p.stg_publish_id as stgPublishId,
-        p.pre_publish_id as prePublishId,
-        p.prd_publish_id as prdPublishId,
-        p.stg_state as stgState,
-        p.pre_state as preState,
-        p.prd_state as prdState,
-        p.project_id as projectId,
-        p.updated_at as updatedAt,
-        SUBSTRING_INDEX(p.user_name, '@', 1) as userName
-      FROM 
-        pages p
-      LEFT JOIN   
-        (select * from pages_role WHERE user_id= ?) pr ON p.id = pr.page_id
-      WHERE 
-        (
+    let statement = '';
+    if (projectId) {
+      statement = `
+        SELECT 
+          p.id,
+          p.name,
+          p.user_id as userId,
+          p.remark,
+          p.is_public as isPublic,
+          p.is_edit as isEdit,
+          p.preview_img as previewImg,
+          p.stg_publish_id as stgPublishId,
+          p.pre_publish_id as prePublishId,
+          p.prd_publish_id as prdPublishId,
+          p.stg_state as stgState,
+          p.pre_state as preState,
+          p.prd_state as prdState,
+          p.project_id as projectId,
+          p.updated_at as updatedAt,
+          SUBSTRING_INDEX(p.user_name, '@', 1) as userName
+        FROM 
+          pages p
+        LEFT JOIN   
+          pages_role pr 
+        ON 
+          p.project_id = pr.page_id and pr.user_id = ${userId}
+        WHERE 
           (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
-          AND p.user_id = ?
-          ${projectId ? 'AND p.project_id = ' + projectId : ''}
-        ) OR pr.page_id IS NOT NULL
-      ORDER BY 
-        p.updated_at DESC LIMIT ${offset},${limit};`;
+        AND 
+          p.project_id = ${projectId} and pr.user_id IS NOT NULL 
+        ORDER BY 
+          p.updated_at DESC LIMIT ${offset},${limit};`;
+    } else {
+      statement = `
+        SELECT 
+          p.id,
+          p.name,
+          p.user_id as userId,
+          p.remark,
+          p.is_public as isPublic,
+          p.is_edit as isEdit,
+          p.preview_img as previewImg,
+          p.stg_publish_id as stgPublishId,
+          p.pre_publish_id as prePublishId,
+          p.prd_publish_id as prdPublishId,
+          p.stg_state as stgState,
+          p.pre_state as preState,
+          p.prd_state as prdState,
+          p.project_id as projectId,
+          p.updated_at as updatedAt,
+          SUBSTRING_INDEX(p.user_name, '@', 1) as userName
+        FROM 
+          pages p
+        LEFT JOIN   
+          pages_role pr on pr.user_id = ${userId} and pr.page_id = p.id
+        WHERE 
+          (
+            (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
+            AND p.user_id = ${userId}
+          ) OR pr.page_id IS NOT NULL
+        ORDER BY 
+          p.updated_at DESC LIMIT ${offset},${limit};`;
+    }
     const [result] = await connection.execute(statement, [userId, keyword || null, keyword || null, userId]);
-    return result;
-  }
-
-  // 查询页面分类总条数
-  async getCategoryCount(keyword, userId) {
-    const statement = `
-      SELECT 
-        count(DISTINCT p.id) total
-      FROM 
-        projects p
-      LEFT JOIN 
-        pages pg ON p.id = pg.project_id
-      WHERE 
-        (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL)
-      AND 
-        p.user_id = ?
-    `;
-    const [result] = await connection.execute(statement, [keyword || null, keyword || null, userId]);
-    return result[0];
-  }
-
-  // 查询页面分类列表
-  async getCategoryList(pageNum, pageSize, keyword, userId) {
-    const offset = (+pageNum - 1) * pageSize + '';
-    const statement = `
-      SELECT 
-        p.id as id,
-        p.name as name,
-        p.remark,
-        p.user_id as userId,
-        p.user_name as userName,
-        p.logo,
-        COUNT(pg.id) as count
-      FROM 
-        projects p
-      LEFT JOIN 
-        pages pg ON p.id = pg.project_id
-      WHERE 
-        (p.name like COALESCE(CONCAT('%',?,'%'), p.name) OR ? IS NULL) 
-      AND 
-        p.user_id = ?
-      GROUP BY 
-        p.id, p.name, p.user_id
-      LIMIT ?, ?
-    `;
-    const [result] = await connection.execute(statement, [keyword || null, keyword || null, userId, offset, pageSize]);
     return result;
   }
 

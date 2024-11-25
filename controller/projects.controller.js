@@ -27,6 +27,28 @@ module.exports = {
     });
   },
 
+  async getCategoryList(ctx) {
+    const { userId } = util.decodeToken(ctx);
+    const { pageNum, pageSize, keyword } = ctx.request.query;
+    const { total } = await projectsService.getCategoryCount(keyword, userId);
+    if (total == 0) {
+      return util.success(ctx, {
+        list: [],
+        total: 0,
+        pageSize: +pageSize || 12,
+        pageNum: +pageNum || 1,
+      });
+    }
+    const list = await projectsService.getCategoryList(pageNum || 1, pageSize || 12, keyword, userId);
+
+    util.success(ctx, {
+      list,
+      total,
+      pageSize: +pageSize,
+      pageNum: +pageNum,
+    });
+  },
+
   // 查询我名下所有项目列表，用于创建页面时进行归属设置
   async queryAllProjects(ctx) {
     const { userId } = util.decodeToken(ctx);

@@ -26,28 +26,6 @@ module.exports = {
     });
   },
 
-  async getCategoryList(ctx) {
-    const { userId } = util.decodeToken(ctx);
-    const { pageNum, pageSize, keyword } = ctx.request.query;
-    const { total } = await pageService.getCategoryCount(keyword, userId);
-    if (total == 0) {
-      return util.success(ctx, {
-        list: [],
-        total: 0,
-        pageSize: +pageSize || 12,
-        pageNum: +pageNum || 1,
-      });
-    }
-    const list = await pageService.getCategoryList(pageNum || 1, pageSize || 12, keyword, userId);
-
-    util.success(ctx, {
-      list,
-      total,
-      pageSize: +pageSize,
-      pageNum: +pageNum,
-    });
-  },
-
   async listPageTemplate(ctx) {
     const { pageNum, pageSize, keyword } = ctx.request.query;
     const { total } = await pageService.listPageTemplateCount(keyword);

@@ -71,6 +71,7 @@ app.use(
       /^\/api\/user\/login/,
       /^\/api\/user\/sendEmail/,
       /^\/api\/user\/regist/,
+      /^\/api\/user\/password/,
       /^\/api\/admin\/page\/detail/,
       /^\/api\/ai\/proxy/,
       /^\/api\/firefly/,

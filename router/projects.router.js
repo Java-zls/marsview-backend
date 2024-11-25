@@ -9,6 +9,9 @@ const projectsController = require('../controller/projects.controller');
 // 获取项目列表
 router.get('/list', projectsController.list);
 
+// 获取所属项目列表
+router.get('/category', projectsController.getCategoryList);
+
 // 获取我名下所有项目列表
 router.get('/queryAllProjects', projectsController.queryAllProjects);
 

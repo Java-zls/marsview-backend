@@ -9,9 +9,6 @@ const pagesController = require('../controller/pages.controller');
 // 获取页面列表
 router.get('/list', pagesController.list);
 
-// 获取页面所属项目列表
-router.get('/category', pagesController.getCategoryList);
-
 // 获取页面模板列表
 router.get('/getPageTemplateList', pagesController.listPageTemplate);
 
